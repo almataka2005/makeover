@@ -7,81 +7,114 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
-        body { font-family: 'Cairo', sans-serif; background-color: #0b0b0b; color: #e0e0e0; margin: 0; }
+        body { font-family: 'Cairo', sans-serif; background-color: #0b0b0b; color: #e0e0e0; margin: 0; overflow-x: hidden; }
         .sidebar { background-color: #000; border-left: 2px solid #e11d48; width: 240px; height: 100vh; position: fixed; right: 0; z-index: 10; }
         .main-content { margin-right: 240px; padding: 40px; width: calc(100% - 240px); }
-        .btn-red { background-color: #e11d48; color: white; font-weight: bold; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: 0.3s; }
+        .btn-red { background-color: #e11d48; color: white; font-weight: bold; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: 0.3s; border: none; }
         .btn-red:hover { background-color: #be123c; }
+        .btn-export { background-color: #059669; color: white; font-weight: bold; padding: 10px 20px; border-radius: 8px; cursor: pointer; transition: 0.3s; border: none; display: flex; align-items: center; gap: 8px; font-size: 0.875rem; }
         .table-container { background: #18181b; border: 1px solid #27272a; border-radius: 12px; overflow: hidden; }
         .filter-input { background-color: #000; border: 1px solid #27272a; color: white; padding: 10px; border-radius: 8px; outline: none; }
         .product-img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid #333; }
-        .nav-btn { width: 100%; text-align: right; padding: 12px; border-radius: 8px; margin-bottom: 8px; color: #a1a1aa; transition: 0.3s; }
+        .nav-btn { width: 100%; text-align: right; padding: 12px; border-radius: 8px; margin-bottom: 8px; color: #a1a1aa; transition: 0.3s; background: transparent; border: none; cursor: pointer; }
         .nav-btn.active { background-color: #e11d48; color: white; font-weight: bold; }
-        .upload-box { border: 2px dashed #27272a; padding: 20px; text-align: center; border-radius: 10px; cursor: pointer; margin-bottom: 15px; }
-        .upload-box:hover { border-color: #e11d48; background: #111; }
+        .stat-card { background: #18181b; border: 1px solid #27272a; padding: 25px; border-radius: 12px; text-align: center; cursor: pointer; transition: 0.3s; position: relative; }
+        .stat-card:hover { border-color: #e11d48; background: #1e1e21; }
+        .stat-card.active { border-color: #e11d48; background: #271016; }
+        .image-preview-box { width: 100%; height: 120px; border: 2px dashed #27272a; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #050505; margin-bottom: 15px; }
+        .image-preview-box img { max-height: 100%; width: auto; }
+        .delete-btn { color: #f87171; transition: 0.2s; cursor: pointer; font-size: 1.2rem; }
     </style>
 </head>
 <body class="flex">
 
     <div class="sidebar p-6 flex flex-col">
         <div class="text-center mb-10">
-            <h1 class="text-2xl font-bold text-white">MAKE<span class="text-rose-600">OVER</span></h1>
-            <p class="text-[10px] text-gray-500 tracking-widest uppercase">Warehouse Live</p>
+            <h1 class="text-2xl font-bold text-white uppercase tracking-tighter">MAKE<span class="text-rose-600">OVER</span></h1>
+            <p class="text-[9px] text-gray-500 tracking-[0.2em] uppercase">Warehouse Live</p>
         </div>
         <nav class="space-y-2">
-            <button onclick="switchTab('inbound')" id="tab-inbound" class="nav-btn active">Inbound (الوارد)</button>
-            <button onclick="switchTab('inventory')" id="tab-inventory" class="nav-btn">Inventory (المخزن)</button>
+            <button onclick="switchTab('inbound')" id="tab-inbound" class="nav-btn">Inbound (الوارد)</button>
+            <button onclick="switchTab('outbound')" id="tab-outbound" class="nav-btn">Outbound (الصادر)</button>
+            <button onclick="switchTab('inventory')" id="tab-inventory" class="nav-btn active">Inventory (المخزن)</button>
             <button onclick="switchTab('locations')" id="tab-locations" class="nav-btn">Locations (الأماكن)</button>
         </nav>
     </div>
 
     <div class="main-content">
-        <div id="section-inbound">
+        
+        <div id="section-inbound" class="hidden">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-bold">إدارة الوارد (مباشر)</h2>
+                <h2 class="text-3xl font-bold">إدارة الوارد (Inbound)</h2>
                 <button onclick="showInboundModal()" class="btn-red">+ استلام شحنة</button>
             </div>
-            
-            <div class="bg-zinc-900/50 p-4 rounded-lg mb-6 flex gap-4 items-center border border-zinc-800">
+            <div class="bg-zinc-900/50 p-4 rounded-lg mb-6 border border-zinc-800 flex gap-4 items-center">
                 <span class="text-sm text-gray-400">تصفية التاريخ:</span>
                 <input type="text" id="dateFilter" class="filter-input w-72 text-xs" placeholder="اختر الفترة (من - إلى)">
                 <button onclick="resetDateFilter()" class="text-xs text-gray-500 underline">إعادة تعيين</button>
             </div>
-
             <div class="table-container">
                 <table class="w-full text-right">
-                    <thead class="bg-zinc-800 text-rose-500">
-                        <tr>
-                            <th class="p-4 text-xs">الصورة</th>
-                            <th class="p-4 text-xs">Ref</th>
-                            <th class="p-4 text-xs">المنتج / SKU</th>
-                            <th class="p-4 text-xs">الكمية</th>
-                            <th class="p-4 text-xs">الموقع</th>
-                            <th class="p-4 text-xs">التاريخ</th>
-                        </tr>
+                    <thead class="bg-zinc-800 text-rose-500 text-xs">
+                        <tr><th class="p-4">الصورة</th><th class="p-4">Ref</th><th class="p-4">المنتج</th><th class="p-4">الكمية</th><th class="p-4">الموقع</th><th class="p-4">التاريخ</th></tr>
                     </thead>
                     <tbody id="inboundLogTable"></tbody>
                 </table>
             </div>
         </div>
 
-        <div id="section-inventory" class="hidden">
-            <h2 class="text-3xl font-bold mb-6">المخزون الحالي</h2>
+        <div id="section-outbound" class="hidden text-center">
+            <h2 class="text-3xl font-bold mb-8 text-right">إدارة الصادر (Outbound)</h2>
+            <div class="max-w-2xl mx-auto bg-zinc-900 p-10 rounded-2xl border border-zinc-800 shadow-2xl">
+                <div class="border-2 border-dashed border-zinc-800 p-10 rounded-xl cursor-pointer hover:border-rose-600 transition" onclick="document.getElementById('outboundFile').click()">
+                    <input type="file" id="outboundFile" accept=".xlsx, .xls" class="hidden" onchange="handleOutbound(this)">
+                    <div class="text-6xl mb-4 text-rose-600">📤</div>
+                    <p class="text-xl font-bold">ارفع شيت أوردرات اليوم</p>
+                    <p class="text-gray-500 text-sm mt-3">سيتم خصم أي SKU موجود في الشيت من المخزن</p>
+                </div>
+                <div id="outboundStatus" class="mt-6 p-3 rounded-lg text-sm font-bold"></div>
+            </div>
+        </div>
+
+        <div id="section-inventory">
+            <h2 class="text-3xl font-bold mb-8">المخزون والتحليلات</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div class="stat-card active" id="stat-all" onclick="filterInvStatus('all')">
+                    <p class="text-gray-500 text-xs uppercase font-bold tracking-widest mb-2">ALL ITEMS</p>
+                    <h3 class="text-5xl font-bold" id="count-all">0</h3>
+                </div>
+                <div class="stat-card" id="stat-instock" onclick="filterInvStatus('In Stock')">
+                    <p class="text-gray-500 text-xs uppercase font-bold tracking-widest mb-2">IN STOCK</p>
+                    <h3 class="text-5xl font-bold text-emerald-500" id="count-instock">0</h3>
+                </div>
+                <div class="stat-card" id="stat-transferred" onclick="filterInvStatus('Transferred')">
+                    <p class="text-gray-500 text-xs uppercase font-bold tracking-widest mb-2">TRANSFERRED</p>
+                    <h3 class="text-5xl font-bold text-rose-500" id="count-transferred">0</h3>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mb-6 gap-4">
+                 <div class="relative flex-1">
+                    <input type="text" id="inventorySearch" onkeyup="searchInventory()" placeholder="بحث بالاسم أو SKU..." class="filter-input w-full pr-12">
+                    <span class="absolute right-4 top-3.5 opacity-40">🔍</span>
+                </div>
+                <button onclick="exportInventoryToExcel()" class="btn-export">📥 تصدير Excel</button>
+            </div>
+
             <div class="table-container">
-                <table class="w-full text-right">
-                    <thead class="bg-zinc-800 text-rose-500 text-xs">
+                <table class="w-full text-right" id="inventoryTableMain">
+                    <thead class="bg-zinc-800 text-gray-400 text-[11px] uppercase tracking-wider">
                         <tr>
-                            <th class="p-4">الصورة</th>
-                            <th class="p-4">المنتج</th>
-                            <th class="p-4">SKU</th>
-                            <th class="p-4">الرصيد الكلي</th>
-                            <th class="p-4">آخر تحديث</th>
+                            <th class="p-4">الصورة</th><th class="p-4">المنتج</th><th class="p-4">SKU</th><th class="p-4">الموقع</th><th class="p-4">الحالة</th><th class="p-4 text-rose-500">الرصيد</th><th class="p-4 text-center">إجراءات</th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTable"></tbody>
@@ -94,27 +127,28 @@
                 <h2 class="text-3xl font-bold">خريطة المواقع</h2>
                 <button onclick="addNewLocation()" class="btn-red">+ إضافة موقع</button>
             </div>
-            <div id="locationsGrid" class="grid grid-cols-1 md:grid-cols-4 gap-4"></div>
+            <div id="locationsGrid" class="grid grid-cols-2 md:grid-cols-5 gap-4 text-center"></div>
         </div>
     </div>
 
     <div id="modal-inbound" class="fixed inset-0 bg-black/95 hidden flex items-center justify-center p-4 z-50">
-        <div class="bg-zinc-900 w-full max-w-md p-8 rounded-xl border border-zinc-800">
-            <h3 class="text-xl font-bold mb-6 text-rose-500">استلام بضاعة جديدة</h3>
+        <div class="bg-zinc-900 w-full max-w-md p-8 rounded-2xl border border-zinc-800 shadow-2xl">
+            <h3 class="text-xl font-bold mb-6 text-rose-500 text-center">📦 إضافة مخزون جديد</h3>
             
-            <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-                <input type="file" id="fileInput" accept="image/*" class="hidden">
-                <p id="fileLabel" class="text-sm text-gray-400 italic">اضغط لرفع صورة من الجهاز</p>
+            <div class="image-preview-box" id="imgPreviewBox">
+                <p class="text-[10px] text-zinc-600">سيتم عرض صورة المنتج هنا</p>
             </div>
 
-            <input type="text" id="pName" placeholder="اسم المنتج" class="filter-input w-full mb-3">
-            <input type="text" id="pSKU" placeholder="SKU" class="filter-input w-full mb-3">
-            <input type="number" id="pQty" placeholder="الكمية" class="filter-input w-full mb-3">
-            <select id="pLocSelect" class="filter-input w-full mb-6"></select>
-            
-            <div class="flex gap-3">
-                <button id="saveBtn" onclick="saveData()" class="btn-red flex-1">تأكيد وحفظ</button>
-                <button onclick="closeModal()" class="bg-zinc-800 px-6 rounded text-gray-400">إلغاء</button>
+            <div class="space-y-4">
+                <input type="text" id="pImgUrl" oninput="updatePreview(this.value)" placeholder="ضع رابط صورة المنتج هنا (URL)" class="filter-input w-full border-rose-900/50">
+                <input type="text" id="pName" placeholder="اسم المنتج" class="filter-input w-full">
+                <input type="text" id="pSKU" placeholder="SKU المنتج" class="filter-input w-full">
+                <input type="number" id="pQty" placeholder="الكمية" class="filter-input w-full">
+                <select id="pLocSelect" class="filter-input w-full"></select>
+                <div class="flex gap-3 pt-4">
+                    <button id="saveBtn" onclick="saveData()" class="btn-red flex-1">تأكيد الإدخال</button>
+                    <button onclick="closeModal()" class="bg-zinc-800 px-6 rounded-lg text-gray-400">إلغاء</button>
+                </div>
             </div>
         </div>
     </div>
@@ -130,26 +164,10 @@
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
-        const storage = firebase.storage();
 
-        let allInbounds = [];
+        let rawData = {}; 
+        let currentFilterStatus = 'all';
 
-        // Flatpickr (Bosta Filter Style)
-        const fp = flatpickr("#dateFilter", {
-            mode: "range",
-            dateFormat: "Y-m-d",
-            theme: "dark",
-            onClose: function(selectedDates) {
-                if(selectedDates.length === 2) filterDataByDate(selectedDates[0], selectedDates[1]);
-            }
-        });
-
-        document.getElementById('fileInput').onchange = e => {
-            document.getElementById('fileLabel').innerText = "تم اختيار: " + e.target.files[0].name;
-            document.getElementById('fileLabel').style.color = "#e11d48";
-        };
-
-        // Switch Tabs
         function switchTab(tab) {
             document.querySelectorAll('.main-content > div').forEach(d => d.classList.add('hidden'));
             document.getElementById('section-' + tab).classList.remove('hidden');
@@ -157,108 +175,177 @@
             document.getElementById('tab-' + tab).classList.add('active');
         }
 
-        function showInboundModal() {
-            db.ref('locations').once('value', s => {
-                const locs = s.val() || {};
-                document.getElementById('pLocSelect').innerHTML = Object.values(locs).map(l => `<option value="${l}">${l}</option>`).join('');
-                document.getElementById('modal-inbound').classList.remove('hidden');
-            });
+        // تحديث المعاينة عند وضع رابط
+        function updatePreview(url) {
+            const box = document.getElementById('imgPreviewBox');
+            if(url.trim() !== "") {
+                box.innerHTML = `<img src="${url}" onerror="this.parentElement.innerHTML='<p class=text-rose-500>رابط غير صالح</p>'">`;
+            } else {
+                box.innerHTML = `<p class="text-[10px] text-zinc-600">سيتم عرض صورة المنتج هنا</p>`;
+            }
         }
-        function closeModal() { document.getElementById('modal-inbound').classList.add('hidden'); }
 
-        // Save Data
         async function saveData() {
             const btn = document.getElementById('saveBtn');
-            const file = document.getElementById('fileInput').files[0];
+            const imgUrl = document.getElementById('pImgUrl').value.trim() || "https://via.placeholder.com/150";
             const name = document.getElementById('pName').value;
             const sku = document.getElementById('pSKU').value;
             const qty = parseInt(document.getElementById('pQty').value);
             const loc = document.getElementById('pLocSelect').value;
 
-            if(!name || !sku || !qty) return alert("يرجى ملء البيانات");
-
-            btn.innerText = "جاري الحفظ...";
-            btn.disabled = true;
-
-            let imgUrl = "https://via.placeholder.com/50";
-            if(file) {
-                const ref = storage.ref(`products/${Date.now()}_${file.name}`);
-                await ref.put(file);
-                imgUrl = await ref.getDownloadURL();
-            }
-
-            db.ref('inbound').push({
+            if(!name || !sku || isNaN(qty)) return alert("برجاء إدخال كافة البيانات");
+            btn.innerText = "جاري الحفظ..."; btn.disabled = true;
+            
+            await db.ref('inbound').push({
                 name, sku, qty, loc, img: imgUrl,
+                status: "In Stock",
                 timestamp: Date.now(),
-                dateStr: new Date().toISOString().split('T')[0],
-                ref: "PO-" + Math.floor(Math.random()*10000)
+                ref: "PO-" + Math.floor(100 + Math.random()*900)
             });
-
-            btn.innerText = "تأكيد وحفظ";
-            btn.disabled = false;
+            
+            btn.innerText = "تأكيد الإدخال"; btn.disabled = false;
             closeModal();
         }
 
-        // Listen for Data
+        async function handleOutbound(input) {
+            const statusDiv = document.getElementById('outboundStatus');
+            const file = input.files[0];
+            if(!file) return;
+
+            statusDiv.innerHTML = "جاري المعالجة... ⏳";
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet);
+
+                let updateCount = 0;
+                const updates = {};
+                const excelSkus = json.map(row => (row.sku || row.SKU || "").toString().trim()).filter(s => s !== "");
+
+                Object.keys(rawData).forEach(key => {
+                    const record = rawData[key];
+                    if(excelSkus.includes(record.sku.toString().trim()) && record.status === "In Stock") {
+                        updates[`inbound/${key}/status`] = "Transferred";
+                        updateCount++;
+                    }
+                });
+
+                if(updateCount > 0) {
+                    await db.ref().update(updates);
+                    statusDiv.innerHTML = `✅ تم تحويل ${updateCount} قطعة إلى Transferred.`;
+                    statusDiv.className = "mt-6 p-3 rounded-lg text-sm bg-emerald-500/10 text-emerald-500";
+                } else {
+                    statusDiv.innerHTML = "❌ لم يتم العثور على قطع متوفرة مطابقة.";
+                    statusDiv.className = "mt-6 p-3 rounded-lg text-sm bg-rose-500/10 text-rose-500";
+                }
+                input.value = "";
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
         db.ref('inbound').on('value', snap => {
-            const data = snap.val() || {};
-            allInbounds = Object.values(data);
-            renderTables(allInbounds);
+            rawData = snap.val() || {};
+            renderTables(rawData);
         });
 
-        db.ref('locations').on('value', snap => {
-            const locs = snap.val() || {};
-            document.getElementById('locationsGrid').innerHTML = Object.values(locs).map(l => `
-                <div class="bg-zinc-900 p-4 rounded-lg border border-zinc-800 text-center font-bold">${l}</div>
-            `).join('');
-        });
-
-        function renderTables(items) {
-            // Inbound Table
-            document.getElementById('inboundLogTable').innerHTML = [...items].reverse().map(item => `
-                <tr class="border-b border-zinc-800 hover:bg-zinc-900/40">
-                    <td class="p-4"><img src="${item.img}" class="product-img"></td>
+        function renderTables(data) {
+            const items = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+            
+            // Log Inbound
+            document.getElementById('inboundLogTable').innerHTML = items.sort((a,b)=>b.timestamp-a.timestamp).map(item => `
+                <tr class="border-b border-zinc-800/50">
+                    <td class="p-4"><img src="${item.img}" class="product-img" onerror="this.src='https://via.placeholder.com/50'"></td>
                     <td class="p-4 text-rose-500 font-bold text-xs">${item.ref}</td>
-                    <td class="p-4 text-sm">${item.name}<br><span class="text-[10px] text-gray-500">${item.sku}</span></td>
+                    <td class="p-4 text-sm font-bold">${item.name}<br><span class="text-[10px] text-gray-500">${item.sku}</span></td>
                     <td class="p-4 font-bold text-lg">${item.qty}</td>
-                    <td class="p-4 text-xs text-blue-400">${item.loc}</td>
+                    <td class="p-4 text-xs font-bold text-blue-400">${item.loc}</td>
                     <td class="p-4 text-[10px] text-gray-500">${new Date(item.timestamp).toLocaleString('ar-EG')}</td>
                 </tr>
             `).join('');
 
-            // Inventory Logic
-            const inv = {};
+            // Stats
+            let tAll = 0, tIn = 0, tOut = 0;
+            const grouped = {};
             items.forEach(i => {
-                if(!inv[i.sku]) inv[i.sku] = { ...i, total: 0 };
-                inv[i.sku].total += i.qty;
+                tAll += i.qty;
+                if(i.status === "In Stock") tIn += i.qty;
+                if(i.status === "Transferred") tOut += i.qty;
+                if(!grouped[i.sku]) grouped[i.sku] = { ...i, total: 0 };
+                grouped[i.sku].total += i.qty;
             });
-            document.getElementById('inventoryTable').innerHTML = Object.values(inv).map(i => `
-                <tr class="border-b border-zinc-800">
-                    <td class="p-4"><img src="${i.img}" class="product-img"></td>
-                    <td class="p-4 font-bold">${i.name}</td>
-                    <td class="p-4 text-xs text-gray-500">${i.sku}</td>
-                    <td class="p-4 text-rose-500 font-bold text-xl">${i.total}</td>
-                    <td class="p-4 text-[10px]">${new Date(i.timestamp).toLocaleDateString()}</td>
+
+            document.getElementById('count-all').innerText = tAll;
+            document.getElementById('count-instock').innerText = tIn;
+            document.getElementById('count-transferred').innerText = tOut;
+
+            // Inventory
+            const list = Object.values(grouped).filter(i => (currentFilterStatus === 'all' || i.status === currentFilterStatus));
+            document.getElementById('inventoryTable').innerHTML = list.map(i => `
+                <tr class="border-b border-zinc-800 hover:bg-zinc-900/50">
+                    <td class="p-4"><img src="${i.img}" class="product-img" onerror="this.src='https://via.placeholder.com/50'"></td>
+                    <td class="p-4 font-bold text-sm">${i.name}</td>
+                    <td class="p-4 text-xs text-gray-500 font-mono">${i.sku}</td>
+                    <td class="p-4 text-xs text-blue-400 font-bold">${i.loc}</td>
+                    <td class="p-4">
+                        <span class="px-3 py-1 rounded-full text-[10px] font-bold ${i.status === 'In Stock' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}">
+                            ${i.status.toUpperCase()}
+                        </span>
+                    </td>
+                    <td class="p-4 text-rose-500 font-bold text-2xl">${i.total}</td>
+                    <td class="p-4 text-center"><button onclick="deleteProduct('${i.sku}')" class="delete-btn">🗑️</button></td>
                 </tr>
             `).join('');
         }
 
-        function filterDataByDate(start, end) {
-            const s = start.toISOString().split('T')[0];
-            const e = end.toISOString().split('T')[0];
-            const filtered = allInbounds.filter(i => i.dateStr >= s && i.dateStr <= e);
-            renderTables(filtered);
+        function filterInvStatus(status) {
+            currentFilterStatus = status;
+            document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+            const idMap = { 'all': 'all', 'In Stock': 'instock', 'Transferred': 'transferred' };
+            document.getElementById('stat-' + idMap[status]).classList.add('active');
+            renderTables(rawData);
         }
 
-        function resetDateFilter() {
-            fp.clear();
-            renderTables(allInbounds);
+        function searchInventory() {
+            const q = document.getElementById('inventorySearch').value.toLowerCase();
+            document.querySelectorAll('#inventoryTable tr').forEach(r => r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none');
         }
 
-        function addNewLocation() {
-            const n = prompt("ادخل اسم الموقع (مثال A-1-1):");
-            if(n) db.ref('locations').push(n);
+        async function deleteProduct(sku) {
+            if(!confirm("حذف الصنف؟")) return;
+            const updates = {};
+            Object.keys(rawData).forEach(k => { if(rawData[k].sku === sku) updates[k] = null; });
+            await db.ref('inbound').update(updates);
         }
+
+        function showInboundModal() {
+            document.getElementById('pImgUrl').value = "";
+            document.getElementById('imgPreviewBox').innerHTML = `<p class="text-[10px] text-zinc-600">سيتم عرض صورة المنتج هنا</p>`;
+            db.ref('locations').once('value', s => {
+                const locs = s.val() || {};
+                document.getElementById('pLocSelect').innerHTML = Object.values(locs).map(l => `<option value="${l}">${l}</option>`).join('') || '<option value="Default">المخزن الرئيسي</option>';
+                document.getElementById('modal-inbound').classList.remove('hidden');
+            });
+        }
+        function closeModal() { document.getElementById('modal-inbound').classList.add('hidden'); }
+        function addNewLocation() { const n = prompt("الموقع:"); if(n) db.ref('locations').push(n); }
+        db.ref('locations').on('value', snap => {
+            document.getElementById('locationsGrid').innerHTML = Object.values(snap.val()||{}).map(l => `<div class="bg-zinc-900 p-6 rounded-xl border border-zinc-800 text-sm font-bold shadow-lg">${l}</div>`).join('');
+        });
+
+        const fp_instance = flatpickr("#dateFilter", {
+            mode: "range", dateFormat: "Y-m-d", theme: "dark",
+            onClose: (selectedDates) => {
+                if(selectedDates.length === 2) {
+                    const s = selectedDates[0].getTime(), e = selectedDates[1].getTime() + 86400000;
+                    const filtered = {};
+                    Object.keys(rawData).forEach(k => { if(rawData[k].timestamp >= s && rawData[k].timestamp <= e) filtered[k] = rawData[k]; });
+                    renderTables(filtered);
+                }
+            }
+        });
+        function resetDateFilter() { fp_instance.clear(); renderTables(rawData); }
     </script>
 </body>
 </html>
