@@ -3,138 +3,262 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movesa Logistics System</title>
+    <title>MAKEOVER - Warehouse Live</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <style>
-        :root { --primary: #e91e63; --bg: #0b0b0b; --card: #161616; --text: #ffffff; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
-        .container { max-width: 1100px; margin: 0 auto; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
-        .filter-bar { background: var(--card); padding: 20px; border-radius: 12px; display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; align-items: flex-end; }
-        input, select { background: #222; border: 1px solid #444; color: white; padding: 10px; border-radius: 6px; }
-        button { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 12px; overflow: hidden; }
-        th, td { padding: 15px; text-align: center; border-bottom: 1px solid #333; }
-        th { background: #222; color: var(--primary); }
-        .product-img { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid var(--primary); }
-        .modal { background: rgba(0,0,0,0.9); position: fixed; top:0; left:0; width:100%; height:100%; display:none; justify-content:center; align-items:center; }
-        .modal-content { background: var(--card); padding: 30px; border-radius: 15px; width: 400px; }
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+        body { font-family: 'Cairo', sans-serif; background-color: #0b0b0b; color: #e0e0e0; margin: 0; }
+        .sidebar { background-color: #000; border-left: 2px solid #e11d48; width: 240px; height: 100vh; position: fixed; right: 0; z-index: 10; }
+        .main-content { margin-right: 240px; padding: 40px; width: calc(100% - 240px); }
+        .btn-red { background-color: #e11d48; color: white; font-weight: bold; padding: 10px 20px; border-radius: 6px; cursor: pointer; transition: 0.3s; }
+        .btn-red:hover { background-color: #be123c; }
+        .table-container { background: #18181b; border: 1px solid #27272a; border-radius: 12px; overflow: hidden; }
+        .filter-input { background-color: #000; border: 1px solid #27272a; color: white; padding: 10px; border-radius: 8px; outline: none; }
+        .product-img { width: 50px; height: 50px; object-fit: cover; border-radius: 6px; border: 1px solid #333; }
+        .nav-btn { width: 100%; text-align: right; padding: 12px; border-radius: 8px; margin-bottom: 8px; color: #a1a1aa; transition: 0.3s; }
+        .nav-btn.active { background-color: #e11d48; color: white; font-weight: bold; }
+        .upload-box { border: 2px dashed #27272a; padding: 20px; text-align: center; border-radius: 10px; cursor: pointer; margin-bottom: 15px; }
+        .upload-box:hover { border-color: #e11d48; background: #111; }
     </style>
 </head>
-<body>
+<body class="flex">
 
-<div class="container">
-    <div class="header">
-        <h1>MOVESA | إدارة المخزن</h1>
-        <button onclick="showModal()">+ استلام بضاعة جديدة</button>
-    </div>
-
-    <div class="filter-bar">
-        <div>
-            <label>من تاريخ:</label><br>
-            <input type="date" id="date-from">
+    <div class="sidebar p-6 flex flex-col">
+        <div class="text-center mb-10">
+            <h1 class="text-2xl font-bold text-white">MAKE<span class="text-rose-600">OVER</span></h1>
+            <p class="text-[10px] text-gray-500 tracking-widest uppercase">Warehouse Live</p>
         </div>
-        <div>
-            <label>إلى تاريخ:</label><br>
-            <input type="date" id="date-to">
+        <nav class="space-y-2">
+            <button onclick="switchTab('inbound')" id="tab-inbound" class="nav-btn active">Inbound (الوارد)</button>
+            <button onclick="switchTab('inventory')" id="tab-inventory" class="nav-btn">Inventory (المخزن)</button>
+            <button onclick="switchTab('locations')" id="tab-locations" class="nav-btn">Locations (الأماكن)</button>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <div id="section-inbound">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold">إدارة الوارد (مباشر)</h2>
+                <button onclick="showInboundModal()" class="btn-red">+ استلام شحنة</button>
+            </div>
+            
+            <div class="bg-zinc-900/50 p-4 rounded-lg mb-6 flex gap-4 items-center border border-zinc-800">
+                <span class="text-sm text-gray-400">تصفية التاريخ:</span>
+                <input type="text" id="dateFilter" class="filter-input w-72 text-xs" placeholder="اختر الفترة (من - إلى)">
+                <button onclick="resetDateFilter()" class="text-xs text-gray-500 underline">إعادة تعيين</button>
+            </div>
+
+            <div class="table-container">
+                <table class="w-full text-right">
+                    <thead class="bg-zinc-800 text-rose-500">
+                        <tr>
+                            <th class="p-4 text-xs">الصورة</th>
+                            <th class="p-4 text-xs">Ref</th>
+                            <th class="p-4 text-xs">المنتج / SKU</th>
+                            <th class="p-4 text-xs">الكمية</th>
+                            <th class="p-4 text-xs">الموقع</th>
+                            <th class="p-4 text-xs">التاريخ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inboundLogTable"></tbody>
+                </table>
+            </div>
         </div>
-        <button onclick="loadData()">تطبيق الفلتر</button>
+
+        <div id="section-inventory" class="hidden">
+            <h2 class="text-3xl font-bold mb-6">المخزون الحالي</h2>
+            <div class="table-container">
+                <table class="w-full text-right">
+                    <thead class="bg-zinc-800 text-rose-500 text-xs">
+                        <tr>
+                            <th class="p-4">الصورة</th>
+                            <th class="p-4">المنتج</th>
+                            <th class="p-4">SKU</th>
+                            <th class="p-4">الرصيد الكلي</th>
+                            <th class="p-4">آخر تحديث</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="section-locations" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold">خريطة المواقع</h2>
+                <button onclick="addNewLocation()" class="btn-red">+ إضافة موقع</button>
+            </div>
+            <div id="locationsGrid" class="grid grid-cols-1 md:grid-cols-4 gap-4"></div>
+        </div>
     </div>
 
-    <table id="inventory-table">
-        <thead>
-            <tr>
-                <th>الصورة</th>
-                <th>اسم المنتج</th>
-                <th>SKU</th>
-                <th>الكمية</th>
-                <th>الموقع</th>
-                <th>التاريخ</th>
-            </tr>
-        </thead>
-        <tbody id="data-body">
-            </tbody>
-    </table>
-</div>
+    <div id="modal-inbound" class="fixed inset-0 bg-black/95 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-zinc-900 w-full max-w-md p-8 rounded-xl border border-zinc-800">
+            <h3 class="text-xl font-bold mb-6 text-rose-500">استلام بضاعة جديدة</h3>
+            
+            <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" accept="image/*" class="hidden">
+                <p id="fileLabel" class="text-sm text-gray-400 italic">اضغط لرفع صورة من الجهاز</p>
+            </div>
 
-<div id="addModal" class="modal">
-    <div class="modal-content">
-        <h2 style="color:var(--primary)">استلام شحنة</h2>
-        <input type="text" id="p-name" placeholder="اسم المنتج" style="width:100%; margin-bottom:10px;">
-        <input type="text" id="p-sku" placeholder="SKU" style="width:100%; margin-bottom:10px;">
-        <input type="number" id="p-qty" placeholder="الكمية" style="width:100%; margin-bottom:10px;">
-        <input type="text" id="p-img" placeholder="رابط صورة المنتج (اختياري)" style="width:100%; margin-bottom:10px;">
-        <select id="p-loc" style="width:100%; margin-bottom:20px;">
-            <option value="A-A-1">A-A-1</option>
-            <option value="B-A-1">B-A-1</option>
-        </select>
-        <button onclick="saveData()" style="width:100%">تأكيد وحفظ</button>
-        <button onclick="hideModal()" style="width:100%; background:#444; margin-top:10px;">إلغاء</button>
+            <input type="text" id="pName" placeholder="اسم المنتج" class="filter-input w-full mb-3">
+            <input type="text" id="pSKU" placeholder="SKU" class="filter-input w-full mb-3">
+            <input type="number" id="pQty" placeholder="الكمية" class="filter-input w-full mb-3">
+            <select id="pLocSelect" class="filter-input w-full mb-6"></select>
+            
+            <div class="flex gap-3">
+                <button id="saveBtn" onclick="saveData()" class="btn-red flex-1">تأكيد وحفظ</button>
+                <button onclick="closeModal()" class="bg-zinc-800 px-6 rounded text-gray-400">إلغاء</button>
+            </div>
+        </div>
     </div>
-</div>
 
-<script>
-    // ضع هنا إعدادات Firebase الخاصة بك (Config)
-    const firebaseConfig = {
-        databaseURL: "https://makeover-2c061-default-rtdb.firebaseio.com"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    <script>
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyCgR6ANZ9IlaGzcSfPQMzIfVh_pbPqnIIw",
+            authDomain: "makeover-2c061.firebaseapp.com",
+            projectId: "makeover-2c061",
+            storageBucket: "makeover-2c061.appspot.com",
+            databaseURL: "https://makeover-2c061-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const storage = firebase.storage();
 
-    function showModal() { document.getElementById('addModal').style.display='flex'; }
-    function hideModal() { document.getElementById('addModal').style.display='none'; }
+        let allInbounds = [];
 
-    // حفظ البيانات مع التوقيت والصورة
-    function saveData() {
-        const timestamp = new Date().toISOString(); // حفظ الوقت بدقة
-        const data = {
-            name: document.getElementById('p-name').value,
-            sku: document.getElementById('p-sku').value,
-            qty: document.getElementById('p-qty').value,
-            img: document.getElementById('p-img').value || 'https://via.placeholder.com/60',
-            loc: document.getElementById('p-loc').value,
-            date: timestamp
+        // Flatpickr (Bosta Filter Style)
+        const fp = flatpickr("#dateFilter", {
+            mode: "range",
+            dateFormat: "Y-m-d",
+            theme: "dark",
+            onClose: function(selectedDates) {
+                if(selectedDates.length === 2) filterDataByDate(selectedDates[0], selectedDates[1]);
+            }
+        });
+
+        document.getElementById('fileInput').onchange = e => {
+            document.getElementById('fileLabel').innerText = "تم اختيار: " + e.target.files[0].name;
+            document.getElementById('fileLabel').style.color = "#e11d48";
         };
 
-        db.ref('inbound').push(data).then(() => {
-            alert('تم الاستلام بنجاح');
-            hideModal();
-            loadData();
-        });
-    }
+        // Switch Tabs
+        function switchTab(tab) {
+            document.querySelectorAll('.main-content > div').forEach(d => d.classList.add('hidden'));
+            document.getElementById('section-' + tab).classList.remove('hidden');
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+        }
 
-    // عرض البيانات مع الفلترة بالوقت
-    function loadData() {
-        const fromDate = document.getElementById('date-from').value;
-        const toDate = document.getElementById('date-to').value;
-        
-        db.ref('inbound').on('value', (snapshot) => {
-            let html = '';
-            snapshot.forEach((child) => {
-                const item = child.val();
-                const itemDate = item.date.split('T')[0];
-
-                // منطق الفلترة
-                if ((!fromDate || itemDate >= fromDate) && (!toDate || itemDate <= toDate)) {
-                    html += `
-                        <tr>
-                            <td><img src="${item.img}" class="product-img"></td>
-                            <td>${item.name}</td>
-                            <td>${item.sku}</td>
-                            <td>${item.qty}</td>
-                            <td><span style="background:#333; padding:5px; border-radius:4px;">${item.loc}</span></td>
-                            <td>${new Date(item.date).toLocaleDateString('ar-EG')}</td>
-                        </tr>
-                    `;
-                }
+        function showInboundModal() {
+            db.ref('locations').once('value', s => {
+                const locs = s.val() || {};
+                document.getElementById('pLocSelect').innerHTML = Object.values(locs).map(l => `<option value="${l}">${l}</option>`).join('');
+                document.getElementById('modal-inbound').classList.remove('hidden');
             });
-            document.getElementById('data-body').innerHTML = html;
+        }
+        function closeModal() { document.getElementById('modal-inbound').classList.add('hidden'); }
+
+        // Save Data
+        async function saveData() {
+            const btn = document.getElementById('saveBtn');
+            const file = document.getElementById('fileInput').files[0];
+            const name = document.getElementById('pName').value;
+            const sku = document.getElementById('pSKU').value;
+            const qty = parseInt(document.getElementById('pQty').value);
+            const loc = document.getElementById('pLocSelect').value;
+
+            if(!name || !sku || !qty) return alert("يرجى ملء البيانات");
+
+            btn.innerText = "جاري الحفظ...";
+            btn.disabled = true;
+
+            let imgUrl = "https://via.placeholder.com/50";
+            if(file) {
+                const ref = storage.ref(`products/${Date.now()}_${file.name}`);
+                await ref.put(file);
+                imgUrl = await ref.getDownloadURL();
+            }
+
+            db.ref('inbound').push({
+                name, sku, qty, loc, img: imgUrl,
+                timestamp: Date.now(),
+                dateStr: new Date().toISOString().split('T')[0],
+                ref: "PO-" + Math.floor(Math.random()*10000)
+            });
+
+            btn.innerText = "تأكيد وحفظ";
+            btn.disabled = false;
+            closeModal();
+        }
+
+        // Listen for Data
+        db.ref('inbound').on('value', snap => {
+            const data = snap.val() || {};
+            allInbounds = Object.values(data);
+            renderTables(allInbounds);
         });
-    }
 
-    window.onload = loadData;
-</script>
+        db.ref('locations').on('value', snap => {
+            const locs = snap.val() || {};
+            document.getElementById('locationsGrid').innerHTML = Object.values(locs).map(l => `
+                <div class="bg-zinc-900 p-4 rounded-lg border border-zinc-800 text-center font-bold">${l}</div>
+            `).join('');
+        });
 
+        function renderTables(items) {
+            // Inbound Table
+            document.getElementById('inboundLogTable').innerHTML = [...items].reverse().map(item => `
+                <tr class="border-b border-zinc-800 hover:bg-zinc-900/40">
+                    <td class="p-4"><img src="${item.img}" class="product-img"></td>
+                    <td class="p-4 text-rose-500 font-bold text-xs">${item.ref}</td>
+                    <td class="p-4 text-sm">${item.name}<br><span class="text-[10px] text-gray-500">${item.sku}</span></td>
+                    <td class="p-4 font-bold text-lg">${item.qty}</td>
+                    <td class="p-4 text-xs text-blue-400">${item.loc}</td>
+                    <td class="p-4 text-[10px] text-gray-500">${new Date(item.timestamp).toLocaleString('ar-EG')}</td>
+                </tr>
+            `).join('');
+
+            // Inventory Logic
+            const inv = {};
+            items.forEach(i => {
+                if(!inv[i.sku]) inv[i.sku] = { ...i, total: 0 };
+                inv[i.sku].total += i.qty;
+            });
+            document.getElementById('inventoryTable').innerHTML = Object.values(inv).map(i => `
+                <tr class="border-b border-zinc-800">
+                    <td class="p-4"><img src="${i.img}" class="product-img"></td>
+                    <td class="p-4 font-bold">${i.name}</td>
+                    <td class="p-4 text-xs text-gray-500">${i.sku}</td>
+                    <td class="p-4 text-rose-500 font-bold text-xl">${i.total}</td>
+                    <td class="p-4 text-[10px]">${new Date(i.timestamp).toLocaleDateString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        function filterDataByDate(start, end) {
+            const s = start.toISOString().split('T')[0];
+            const e = end.toISOString().split('T')[0];
+            const filtered = allInbounds.filter(i => i.dateStr >= s && i.dateStr <= e);
+            renderTables(filtered);
+        }
+
+        function resetDateFilter() {
+            fp.clear();
+            renderTables(allInbounds);
+        }
+
+        function addNewLocation() {
+            const n = prompt("ادخل اسم الموقع (مثال A-1-1):");
+            if(n) db.ref('locations').push(n);
+        }
+    </script>
 </body>
 </html>
